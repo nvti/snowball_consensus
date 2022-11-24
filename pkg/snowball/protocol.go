@@ -1,11 +1,10 @@
 package snowball
 
-import "errors"
+import (
+	"errors"
+)
 
 type Config struct {
-	// N number of participants
-	N int
-
 	// K sample size
 	K int
 
@@ -17,15 +16,16 @@ type Config struct {
 }
 
 type Consensus struct {
-	Config  Config
-	Clients []*Client
-
-	Preference           []byte
-	ConsecutiveSuccesses int
+	config               Config
+	clients              []*Client
+	onDecided            func([]byte)
+	preference           []byte
+	consecutiveSuccesses int
+	running              bool
 }
 
-func New(config Config, clients []*Client, preference []byte) (consensus *Consensus, err error) {
-	if config.K < 1 || config.K > config.N {
+func New(clients []*Client, preference []byte, onDecided func([]byte), config Config) (consensus *Consensus, err error) {
+	if config.K < 1 || config.K > len(clients) {
 		return nil, errors.New("k must be between 1 and n")
 	}
 
@@ -38,15 +38,53 @@ func New(config Config, clients []*Client, preference []byte) (consensus *Consen
 	}
 
 	consensus = &Consensus{
-		Config:               config,
-		Clients:              clients,
-		Preference:           preference,
-		ConsecutiveSuccesses: 0,
+		config:               config,
+		clients:              clients,
+		onDecided:            onDecided,
+		preference:           preference,
+		consecutiveSuccesses: 0,
 	}
 
 	return consensus, nil
 }
 
 func (c *Consensus) Start() {
+	if c.running {
+		return
+	}
 
+	c.running = true
+	go func() {
+		for c.consecutiveSuccesses >= c.config.Beta {
+			// choose random k client from c.clients
+
+			// get k answer
+
+			// check if have more a answer with same response
+			// if
+			// newPreference := []byte{}
+
+			// if reflect.DeepEqual(newPreference, c.preference) {
+			// 	c.consecutiveSuccesses++
+			// } else {
+			// 	c.consecutiveSuccesses = 1
+			// }
+		}
+		c.onDecided(c.preference)
+	}()
 }
+
+// func mostFrequent(arr [][]byte) (int, []byte) {
+// 	m := map[[32]byte]int{}
+// 	var maxCount int
+// 	var freq int
+// 	for _, a := range arr {
+// 		m[a]++
+// 		if m[a] > maxCnt {
+// 			maxCnt = m[a]
+// 			freq = a
+// 		}
+// 	}
+
+// 	return freq
+// }
