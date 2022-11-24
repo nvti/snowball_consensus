@@ -1,6 +1,8 @@
 package snowball
 
-type Client interface {
+type PreferenceType comparable
+
+type Client[T PreferenceType] interface {
 	// Returns the currently preferred choice
-	Preference() []byte
+	Preference() T
 }
