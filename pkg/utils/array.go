@@ -1,6 +1,8 @@
 package utils
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 func MostFrequent[K comparable](arr []K) (int, K) {
 	m := map[K]int{}
@@ -18,15 +20,16 @@ func MostFrequent[K comparable](arr []K) (int, K) {
 }
 
 // GetRandomSubArray Get random array from source array
-// using Fisher–Yates shuffle algorithm (https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
 func GetRandomSubArray[K any](arr []K, size int) []K {
 	if size > len(arr) {
 		return arr
 	}
 
-	rand.Shuffle(len(arr), func(i, j int) {
-		arr[i], arr[j] = arr[j], arr[i]
-	})
+	indexArr := rand.Perm(len(arr))
+	subArray := make([]K, size)
+	for i, index := range indexArr[:size] {
+		subArray[i] = arr[index]
+	}
 
-	return arr[:size]
+	return subArray
 }
