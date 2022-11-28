@@ -1,13 +1,17 @@
 package snowball
 
 import (
+	"math/rand"
 	"reflect"
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestConsensus(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
 	type args struct {
 		initPreference []int
 		config         ConsensusConfig
