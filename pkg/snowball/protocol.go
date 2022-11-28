@@ -97,6 +97,7 @@ func (c *Consensus[T]) Sync() {
 	c.running = true
 	go func() {
 		i := 0
+		c.confidence = 1
 		for ; c.confidence < c.config.Beta; i++ {
 			if !c.keepRunning(i) {
 				break
@@ -107,7 +108,7 @@ func (c *Consensus[T]) Sync() {
 		}
 		finished := c.keepRunning(i)
 		c.Finished <- finished
-		log.Info(c.config.Name, ": Finnish after ", i, " step, finished = ", finished, ", preference = ", c.preference)
+		log.Debug(c.config.Name, ": Finnish after ", i, " step, finished = ", finished, ", preference = ", c.preference)
 		c.running = false
 	}()
 }
