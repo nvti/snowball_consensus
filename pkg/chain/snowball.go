@@ -65,7 +65,7 @@ func (c *ConsensusChain) Sync() {
 				block.Data = preference
 			}).Sync()
 			finished := <-c.Consensus.Finished
-			log.Info("Block ", i, ": finished=", finished)
+			log.Info("Block ", i, ": finished=", finished, " preference=", block.Data)
 		}
 		c.Finished <- true
 	}()

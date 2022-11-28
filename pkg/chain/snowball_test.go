@@ -13,17 +13,17 @@ func TestConsensusChain_Sync(t *testing.T) {
 	t.Run("", func(t *testing.T) {
 		chains := []*ConsensusChain{}
 		clients := []Client[int]{}
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 200; i++ {
 			chain := NewConsensusChain(snowball.ConsensusConfig{
 				Name:    "Client " + strconv.Itoa(i),
-				K:       6,
-				Alpha:   4,
+				K:       20,
+				Alpha:   10,
 				Beta:    10,
-				MaxStep: 100,
+				MaxStep: 10000,
 			})
 
-			for i := 0; i < 5; i++ {
-				data := rand.Intn(2)
+			for i := 0; i < 3; i++ {
+				data := rand.Intn(10)
 				_ = chain.Add(data)
 			}
 
