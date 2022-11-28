@@ -5,25 +5,21 @@ import (
 	"sync"
 )
 
-type SimpleBlock struct {
-	Data []byte
-}
-
-func (b *SimpleBlock) Equal(other *SimpleBlock) bool {
-	return HashFunc(b.Data) == HashFunc(other.Data)
+type SimpleBlock[T any] struct {
+	Data T
 }
 
 // Chain a Linear chain implementation
-type SimpleLinearChain struct {
-	Blocks []*SimpleBlock
+type SimpleLinearChain[T any] struct {
+	Blocks []*SimpleBlock[T]
 	mu     sync.Mutex
 }
 
-func (c *SimpleLinearChain) Length() int {
+func (c *SimpleLinearChain[T]) Length() int {
 	return len(c.Blocks)
 }
 
-func (c *SimpleLinearChain) Get(index int) (*SimpleBlock, error) {
+func (c *SimpleLinearChain[T]) Get(index int) (*SimpleBlock[T], error) {
 	if index < 0 || index >= c.Length() {
 		return nil, errors.New("index out of range")
 	}
@@ -31,9 +27,9 @@ func (c *SimpleLinearChain) Get(index int) (*SimpleBlock, error) {
 	return c.Blocks[index], nil
 }
 
-func (c *SimpleLinearChain) Add(data []byte) error {
+func (c *SimpleLinearChain[T]) Add(data T) error {
 	c.mu.Lock()
-	c.Blocks = append(c.Blocks, &SimpleBlock{
+	c.Blocks = append(c.Blocks, &SimpleBlock[T]{
 		Data: data,
 	})
 	c.mu.Unlock()
@@ -41,7 +37,7 @@ func (c *SimpleLinearChain) Add(data []byte) error {
 	return nil
 }
 
-func (c *SimpleLinearChain) Set(index int, data []byte) error {
+func (c *SimpleLinearChain[T]) Set(index int, data T) error {
 	dataBlock, err := c.Get(index)
 	if err != nil {
 		return err

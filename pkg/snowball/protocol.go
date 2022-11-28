@@ -1,7 +1,6 @@
 package snowball
 
 import (
-	"errors"
 	"math/rand"
 	"reflect"
 	"snowball/pkg/log"
@@ -24,7 +23,7 @@ type ConsensusConfig struct {
 	Beta int
 
 	// MaxStep Max number of consensus step
-	// Set to 0 for run until got finished
+	// Set to 0 for running until consensus is reached
 	MaxStep int
 }
 
@@ -40,40 +39,57 @@ type Consensus[T PreferenceType] struct {
 	Finished   chan bool
 }
 
-func NewConsensus[T PreferenceType](preference T, config ConsensusConfig) (consensus *Consensus[T], err error) {
+func NewConsensus[T PreferenceType](config ConsensusConfig) (consensus *Consensus[T]) {
 	if config.Alpha < 1 || config.Alpha > config.K {
-		return nil, errors.New("alpha must be between 1 and k")
+		log.Error("Alpha must be in range [1, K]")
+		return nil
 	}
 
 	if config.Beta < 1 {
-		return nil, errors.New("beta must be great or equal by 1")
+		log.Error("Beta must be greater than 1")
+		return nil
 	}
 
 	consensus = &Consensus[T]{
 		config:     config,
 		onUpdate:   func(t T) {},
-		preference: preference,
 		confidence: 0,
 		running:    false,
 		Finished:   make(chan bool),
 	}
 
-	return consensus, nil
+	return consensus
 }
 
-func (c *Consensus[T]) SetClients(clients []Client[T]) {
+func (c *Consensus[T]) SetClients(clients []Client[T]) *Consensus[T] {
 	c.clients = clients
+	return c
 }
 
-func (c *Consensus[T]) SetUpdateHandler(handler OnUpdateHandler[T]) {
+func (c *Consensus[T]) SetPreference(preference T) *Consensus[T] {
+	c.preference = preference
+	return c
+}
+
+func (c *Consensus[T]) SetUpdateHandler(handler OnUpdateHandler[T]) *Consensus[T] {
 	c.onUpdate = handler
+	return c
 }
 
-func (c *Consensus[T]) Preference() T {
-	return c.preference
+func (c *Consensus[T]) Preference() (T, error) {
+	return c.preference, nil
 }
 
-func (c *Consensus[T]) Start() {
+func (c *Consensus[T]) StopSync() {
+	c.running = false
+}
+
+func (c *Consensus[T]) keepRunning(step int) bool {
+	return (c.config.MaxStep == 0 || step < c.config.MaxStep) && c.running
+}
+
+// Start the consensus
+func (c *Consensus[T]) Sync() {
 	if c.running {
 		return
 	}
@@ -82,21 +98,21 @@ func (c *Consensus[T]) Start() {
 	go func() {
 		i := 0
 		for ; c.confidence < c.config.Beta; i++ {
-			if c.config.MaxStep > 0 && i >= c.config.MaxStep {
+			if !c.keepRunning(i) {
 				break
 			}
 
 			log.Debug(c.config.Name, ": Step ", i)
-			c.Step()
+			c.step()
 		}
-		finished := c.config.MaxStep == 0 || i < c.config.MaxStep
+		finished := c.keepRunning(i)
 		c.Finished <- finished
 		log.Info(c.config.Name, ": Finnish after ", i, " step, finished = ", finished, ", preference = ", c.preference)
 		c.running = false
 	}()
 }
 
-func (c *Consensus[T]) Step() {
+func (c *Consensus[T]) step() {
 	if len(c.clients) < c.config.K {
 		// wait for other client join the network
 		sleepTime := time.Duration(rand.Intn(1000))
@@ -116,15 +132,25 @@ func (c *Consensus[T]) Step() {
 		wg.Add(1)
 		go func(client Client[T]) {
 			mu.Lock()
-			answers = append(answers, client.Preference())
+			preference, err := client.Preference()
+			if err == nil {
+				answers = append(answers, preference)
+			} else {
+				log.Error("Error when get preference from client: ", err)
+			}
 			mu.Unlock()
 			wg.Done()
 		}(client)
 	}
 	wg.Wait()
 
-	// check if have more a answer with same response
-	count, preference := utils.MostFrequent(answers)
+	// check if there is a majority
+	count, preference, err := utils.MostFrequent(answers)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
 	if count >= c.config.Alpha {
 		oldPreference := c.preference
 		c.preference = preference
@@ -135,7 +161,7 @@ func (c *Consensus[T]) Step() {
 			c.confidence++
 			log.Debug(c.config.Name, ": Got same preference, confidence = ", c.confidence)
 		} else {
-			log.Debug(c.config.Name, ": Got difference preference")
+			log.Debug(c.config.Name, ": Got new preference")
 			c.confidence = 1
 		}
 	} else {

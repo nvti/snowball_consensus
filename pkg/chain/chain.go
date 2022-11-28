@@ -22,3 +22,7 @@ type Chain interface {
 	Add(Block) error
 	Set(int, Block) error
 }
+
+type Client[T any] interface {
+	Preference(i int) (T, error)
+}

@@ -50,15 +50,15 @@ func TestConsensus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			clients := []Client[int]{}
 			consensuses := []*Consensus[int]{}
-			// create 10 client
+			// create clients
 			for i, preference := range tt.args.initPreference {
-				consensus, _ := NewConsensus(preference, ConsensusConfig{
+				consensus := NewConsensus[int](ConsensusConfig{
 					Name:    "Client " + strconv.Itoa(i),
 					K:       tt.args.config.K,
 					Alpha:   tt.args.config.Alpha,
 					Beta:    tt.args.config.Beta,
 					MaxStep: tt.args.config.MaxStep,
-				})
+				}).SetPreference(preference)
 
 				clients = append(clients, consensus)
 				consensuses = append(consensuses, consensus)
@@ -76,12 +76,12 @@ func TestConsensus(t *testing.T) {
 				}
 			}
 
-			// Start consensus loop
+			// Start consensus
 			for _, c := range consensuses {
-				c.Start()
+				c.Sync()
 			}
 
-			// Wait all consensus finish
+			// Wait all consensus finished
 			wg := sync.WaitGroup{}
 			allFinish := true
 			for _, c := range consensuses {
@@ -102,10 +102,11 @@ func TestConsensus(t *testing.T) {
 			}
 
 			if tt.wantFinish {
-				// Make sure all preference are the same
-				preference := consensuses[0].Preference()
+				// Make sure all clients have the same preference
+				preference, _ := consensuses[0].Preference()
 				for _, c := range consensuses {
-					if preference != c.Preference() {
+					p, _ := c.Preference()
+					if preference != p {
 						t.Errorf("TestConsensus() preference is not same at all client")
 						return
 					}

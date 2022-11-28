@@ -1,10 +1,16 @@
 package utils
 
 import (
+	"errors"
 	"math/rand"
 )
 
-func MostFrequent[K comparable](arr []K) (int, K) {
+// MostFrequent get item with most frequency in array
+func MostFrequent[K comparable](arr []K) (count int, value K, err error) {
+	if len(arr) == 0 {
+		err = errors.New("empty array")
+		return
+	}
 	m := map[K]int{}
 	var maxCount int
 	var maxKey K
@@ -16,7 +22,7 @@ func MostFrequent[K comparable](arr []K) (int, K) {
 		}
 	}
 
-	return maxCount, maxKey
+	return maxCount, maxKey, nil
 }
 
 // GetRandomSubArray Get random array from source array

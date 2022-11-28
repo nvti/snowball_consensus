@@ -11,44 +11,54 @@ func TestMostFrequent(t *testing.T) {
 		arr []K
 	}
 	tests := []struct {
-		name  string
-		args  args
-		want  int
-		want1 K
+		name      string
+		args      args
+		wantCount int
+		wantValue K
+		wantErr   bool
 	}{
 		{
 			name: "Normal",
 			args: args{
 				arr: []K{1, 2, 2, 3, 1, 2, 3, 4},
 			},
-			want:  3,
-			want1: 2,
+			wantCount: 3,
+			wantValue: 2,
+			wantErr:   false,
 		},
 		{
 			name: "2 item has same counter",
 			args: args{
 				arr: []K{1, 2, 2, 3, 1, 2, 1, 4},
 			},
-			want:  3,
-			want1: 2,
+			wantCount: 3,
+			wantValue: 2,
+			wantErr:   false,
 		},
 		{
 			name: "Empty array",
 			args: args{
 				arr: []K{},
 			},
-			want:  0,
-			want1: 0,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := MostFrequent(tt.args.arr)
-			if got != tt.want {
-				t.Errorf("MostFrequent() got = %v, want %v", got, tt.want)
+			got, got1, err := MostFrequent(tt.args.arr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MostFrequent() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
-			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("MostFrequent() got1 = %v, want %v", got1, tt.want1)
+			if tt.wantErr {
+				return
+			}
+			if got != tt.wantCount {
+				t.Errorf("MostFrequent() got = %v, want %v", got, tt.wantCount)
+				return
+			}
+			if !reflect.DeepEqual(got1, tt.wantValue) {
+				t.Errorf("MostFrequent() got1 = %v, want %v", got1, tt.wantValue)
 			}
 		})
 	}
