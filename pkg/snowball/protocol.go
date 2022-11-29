@@ -1,13 +1,12 @@
 package snowball
 
 import (
-	"math/rand"
 	"reflect"
 	"snowball/pkg/log"
 	"snowball/pkg/utils"
-	"sync"
-	"time"
 )
+
+type PreferenceType comparable
 
 type ConsensusConfig struct {
 	// Name of consensus
@@ -28,15 +27,16 @@ type ConsensusConfig struct {
 }
 
 type OnUpdateHandler[T PreferenceType] func(T)
+type OnRequestAnswerHandler[T PreferenceType] func(int) []T
 
 type Consensus[T PreferenceType] struct {
-	config     ConsensusConfig
-	clients    []Client[T]
-	onUpdate   func(T)
-	preference T
-	confidence int
-	running    bool
-	Finished   chan bool
+	config      ConsensusConfig
+	onUpdate    OnUpdateHandler[T]
+	onReqAnswer OnRequestAnswerHandler[T]
+	preference  T
+	confidence  int
+	running     bool
+	Finished    chan bool
 }
 
 func NewConsensus[T PreferenceType](config ConsensusConfig) (consensus *Consensus[T]) {
@@ -61,11 +61,6 @@ func NewConsensus[T PreferenceType](config ConsensusConfig) (consensus *Consensu
 	return consensus
 }
 
-func (c *Consensus[T]) SetClients(clients []Client[T]) *Consensus[T] {
-	c.clients = clients
-	return c
-}
-
 func (c *Consensus[T]) SetPreference(preference T) *Consensus[T] {
 	c.preference = preference
 	return c
@@ -73,6 +68,11 @@ func (c *Consensus[T]) SetPreference(preference T) *Consensus[T] {
 
 func (c *Consensus[T]) SetUpdateHandler(handler OnUpdateHandler[T]) *Consensus[T] {
 	c.onUpdate = handler
+	return c
+}
+
+func (c *Consensus[T]) SetRequestAnswerHandler(handler OnRequestAnswerHandler[T]) *Consensus[T] {
+	c.onReqAnswer = handler
 	return c
 }
 
@@ -114,36 +114,8 @@ func (c *Consensus[T]) Sync() {
 }
 
 func (c *Consensus[T]) step() {
-	if len(c.clients) < c.config.K {
-		// wait for other client join the network
-		sleepTime := time.Duration(rand.Intn(1000))
-		time.Sleep(sleepTime * time.Millisecond)
-		return
-	}
-
-	// choose random k client from c.clients
-	clients := utils.GetRandomSubArray(c.clients, c.config.K)
-
 	// get k answer
-	answers := []T{}
-	// get answer in parallel
-	wg := sync.WaitGroup{}
-	mu := sync.Mutex{}
-	for _, client := range clients {
-		wg.Add(1)
-		go func(client Client[T]) {
-			mu.Lock()
-			preference, err := client.Preference()
-			if err == nil {
-				answers = append(answers, preference)
-			} else {
-				log.Error("Error when get preference from client: ", err)
-			}
-			mu.Unlock()
-			wg.Done()
-		}(client)
-	}
-	wg.Wait()
+	answers := c.onReqAnswer(c.config.K)
 
 	// check if there is a majority
 	count, preference, err := utils.MostFrequent(answers)

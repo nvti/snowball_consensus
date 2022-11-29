@@ -2,7 +2,7 @@ package snowball
 
 import (
 	"math/rand"
-	"reflect"
+	"snowball/pkg/utils"
 	"strconv"
 	"sync"
 	"testing"
@@ -52,7 +52,6 @@ func TestConsensus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clients := []Client[int]{}
 			consensuses := []*Consensus[int]{}
 			// create clients
 			for i, preference := range tt.args.initPreference {
@@ -64,20 +63,24 @@ func TestConsensus(t *testing.T) {
 					MaxStep: tt.args.config.MaxStep,
 				}).SetPreference(preference)
 
-				clients = append(clients, consensus)
 				consensuses = append(consensuses, consensus)
 			}
 
 			for _, c := range consensuses {
-				c.SetClients(clients)
-			}
+				c.SetRequestAnswerHandler(func(k int) []int {
+					clients := utils.GetRandomSubArray(consensuses, k)
 
-			// Check length of client array
-			for _, c := range consensuses {
-				if !reflect.DeepEqual(c.clients, clients) {
-					t.Errorf("TestConsensus() clients = %v, want %v", c.clients, clients)
-					return
-				}
+					answers := []int{}
+					for _, c := range clients {
+						p, err := c.Preference()
+						if err != nil {
+							continue
+						}
+						answers = append(answers, p)
+					}
+
+					return answers
+				})
 			}
 
 			// Start consensus

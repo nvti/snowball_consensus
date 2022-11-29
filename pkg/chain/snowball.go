@@ -5,22 +5,15 @@ import (
 	"snowball/pkg/snowball"
 )
 
-type wrapperClient struct {
-	client    Client[int]
-	SyncIndex int
-}
-
-func (c *wrapperClient) Preference() (int, error) {
-	return c.client.Preference(c.SyncIndex)
-}
+type OnRequestAnswerHandler func(index int, k int) []int
 
 // Chain a Linear chain implementation
 type SnowballChain struct {
 	SimpleLinearChain[int]
-	Consensus *snowball.Consensus[int]
-	clients   []*wrapperClient
-	syncIndex int
-	Finished  chan bool
+	Consensus   *snowball.Consensus[int]
+	onReqAnswer OnRequestAnswerHandler
+	syncIndex   int
+	Finished    chan bool
 }
 
 func NewConsensusChain(config snowball.ConsensusConfig) *SnowballChain {
@@ -39,30 +32,16 @@ func (c *SnowballChain) Preference(index int) (int, error) {
 	return block.Data, nil
 }
 
-func (c *SnowballChain) SetClients(clients []Client[int]) {
-	consensusClients := []snowball.Client[int]{}
-	c.clients = []*wrapperClient{}
-	for _, client := range clients {
-		cl := &wrapperClient{
-			client:    client,
-			SyncIndex: c.syncIndex,
-		}
-		consensusClients = append(consensusClients, cl)
-		c.clients = append(c.clients, cl)
-	}
-	c.Consensus.SetClients(consensusClients)
-}
-
 func (c *SnowballChain) Sync() {
 	go func() {
 		for i := 0; i < c.Length(); i++ {
 			c.syncIndex = i
-			for _, client := range c.clients {
-				client.SyncIndex = i
-			}
+
 			block := c.Blocks[i]
 			c.Consensus.SetPreference(block.Data).SetUpdateHandler(func(preference int) {
 				block.Data = preference
+			}).SetRequestAnswerHandler(func(k int) []int {
+				return c.onReqAnswer(i, k)
 			}).Sync()
 			finished := <-c.Consensus.Finished
 			log.Info("Block ", i, ": finished=", finished, " preference=", block.Data)
