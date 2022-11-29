@@ -1,85 +1,76 @@
 package main
 
 import (
-	"encoding/json"
+	"flag"
 	"math/rand"
+	"snowball/app"
 	"snowball/pkg/log"
 	"snowball/pkg/p2p"
+	"snowball/pkg/snowball"
 	"time"
 )
 
 const protocolID = "/snowball/1.0.0"
 const serviceName = "snowball"
 
-type DataReq struct {
-	Index int
-}
+var (
+	host     string
+	port     int
+	k        int
+	alpha    int
+	beta     int
+	maxStep  int
+	chainLen int
+	nChoices int
+)
 
-type DataResp struct {
-	Data int
-}
+func init() {
+	rand.Seed(time.Now().UnixNano())
 
-func handleStream(reqData []byte) []byte {
-	req := DataReq{}
-	err := json.Unmarshal(reqData, &req)
-	if err != nil {
-		log.Error(err)
-		return nil
-	}
-
-	resp := DataResp{
-		Data: 10,
-	}
-	respData, err := json.Marshal(resp)
-	if err != nil {
-		log.Error(err)
-		return nil
-	}
-
-	return respData
+	flag.StringVar(&host, "host", "127.0.0.1", "Listen on interface")
+	flag.IntVar(&port, "port", 0, "Listen on port, set to 0 to use random port")
+	flag.IntVar(&k, "k", 3, "K parameter for snowball")
+	flag.IntVar(&alpha, "alpha", 2, "Alpha parameter for snowball")
+	flag.IntVar(&beta, "beta", 10, "Beta parameter for snowball")
+	flag.IntVar(&maxStep, "maxStep", 0, "Max running step for snowball")
+	flag.IntVar(&chainLen, "chainLength", 4, "Length of chain to sync")
+	flag.IntVar(&nChoices, "possibleChoices", 2, "Number of possible choices")
 }
 
 func main() {
-	var err error
-	server, err := p2p.CreateService(p2p.ServerConfig{
-		Name:       serviceName,
-		ProtocolID: protocolID,
-	}, handleStream)
+	service, err := app.CreateService(app.ServiceConfig{
+		ServerConfig: p2p.ServerConfig{
+			Name:       serviceName,
+			ProtocolID: protocolID,
+			Host:       host,
+			Port:       port,
+		},
+		ConsensusConfig: snowball.ConsensusConfig{
+			K:       k,
+			Alpha:   alpha,
+			Beta:    beta,
+			MaxStep: maxStep,
+		},
+	})
 	if err != nil {
-		log.Panic(err)
-	}
-	defer server.Close()
-
-	for {
-		peers := server.Peers()
-		if len(peers) != 0 {
-			index := rand.Intn(len(peers))
-			log.Info("Send to peer ", peers[index].ID)
-
-			req := DataReq{
-				Index: 1,
-			}
-			reqData, err := json.Marshal(req)
-			if err != nil {
-				log.Error(err)
-				continue
-			}
-
-			resp, err := server.Send(peers[index], reqData)
-			if err != nil {
-				log.Error(err)
-				continue
-			}
-
-			if resp != nil && len(resp) > 0 {
-				log.Info("Resp: ", string(resp))
-			}
-		}
-
-		time.Sleep(3 * time.Second)
+		log.Fatal(err)
 	}
 
-	// c := make(chan os.Signal, 1)
-	// signal.Notify(c, os.Interrupt)
-	// <-c
+	for i := 0; i < chainLen; i++ {
+		service.Add(rand.Intn(nChoices))
+	}
+
+	sleepTime := time.Duration(rand.Intn(1000))
+	time.Sleep(sleepTime * time.Millisecond)
+
+	service.Sync()
+
+	log.Infof("Sync finished=%v, data=", service.Finished)
+	for _, block := range service.Blocks {
+		log.Infof("%v", block.Data)
+	}
+
+	// sleep for make sure other nodes can receive the message
+	time.Sleep(20 * time.Second)
+	log.Info("Exit")
 }

@@ -20,8 +20,8 @@ func InitP2P(protocolID string, host string, port int, handler network.StreamHan
 		return
 	}
 
-	log.Info("Addresses:", server.Addrs())
-	log.Info("ID:", server.ID())
+	log.Debug("Addresses:", server.Addrs())
+	log.Debug("ID:", server.ID())
 
 	// This gets called every time a peer connects and opens a stream to this node.
 	server.SetStreamHandler(protocol.ID(protocolID), handler)

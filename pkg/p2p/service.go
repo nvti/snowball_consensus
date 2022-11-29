@@ -101,7 +101,7 @@ func (s *Service) Close() error {
 }
 
 func (s *Service) newPeerHandler(peer peer.AddrInfo) {
-	log.Info("Found peer:", peer, ", connecting")
+	log.Debug("Found peer:", peer, ", connecting")
 	s.server.Peerstore().AddAddrs(peer.ID, peer.Addrs, peerstore.PermanentAddrTTL)
 	s.peers = append(s.peers, &peer)
 }

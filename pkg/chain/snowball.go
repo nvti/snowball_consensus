@@ -54,7 +54,7 @@ func (c *SnowballChain) Sync() {
 		}).SetRequestAnswerHandler(func(k int) []int {
 			return c.onReqAnswer(i, k)
 		}).Sync()
-		log.Info("Block ", i, ": finished=", c.Consensus.Finished, " preference=", block.Data)
+		log.Debug("Block ", i, ": finished=", c.Consensus.Finished, " preference=", block.Data)
 		if !c.Consensus.Finished {
 			finished = false
 			break

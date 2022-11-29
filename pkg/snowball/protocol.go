@@ -112,7 +112,9 @@ func (c *Consensus[T]) Sync() {
 func (c *Consensus[T]) step() {
 	// get k answer
 	answers := c.onReqAnswer(c.config.K)
-
+	if len(answers) < c.config.K {
+		return
+	}
 	// check if there is a majority
 	count, preference, err := utils.MostFrequent(answers)
 	if err != nil {
