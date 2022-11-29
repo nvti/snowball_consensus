@@ -15,7 +15,7 @@ func (c *wrapperClient) Preference() (int, error) {
 }
 
 // Chain a Linear chain implementation
-type ConsensusChain struct {
+type SnowballChain struct {
 	SimpleLinearChain[int]
 	Consensus *snowball.Consensus[int]
 	clients   []*wrapperClient
@@ -23,14 +23,14 @@ type ConsensusChain struct {
 	Finished  chan bool
 }
 
-func NewConsensusChain(config snowball.ConsensusConfig) *ConsensusChain {
-	return &ConsensusChain{
+func NewConsensusChain(config snowball.ConsensusConfig) *SnowballChain {
+	return &SnowballChain{
 		Consensus: snowball.NewConsensus[int](config),
 		Finished:  make(chan bool),
 	}
 }
 
-func (c *ConsensusChain) Preference(index int) (int, error) {
+func (c *SnowballChain) Preference(index int) (int, error) {
 	block, err := c.Get(index)
 	if err != nil {
 		return 0, err
@@ -39,7 +39,7 @@ func (c *ConsensusChain) Preference(index int) (int, error) {
 	return block.Data, nil
 }
 
-func (c *ConsensusChain) SetClients(clients []Client[int]) {
+func (c *SnowballChain) SetClients(clients []Client[int]) {
 	consensusClients := []snowball.Client[int]{}
 	c.clients = []*wrapperClient{}
 	for _, client := range clients {
@@ -53,7 +53,7 @@ func (c *ConsensusChain) SetClients(clients []Client[int]) {
 	c.Consensus.SetClients(consensusClients)
 }
 
-func (c *ConsensusChain) Sync() {
+func (c *SnowballChain) Sync() {
 	go func() {
 		for i := 0; i < c.Length(); i++ {
 			c.syncIndex = i

@@ -7,7 +7,7 @@ import (
 )
 
 // PeerFoundHandler handler when a new peer found
-type PeerFoundHandler func(host host.Host, peerInfo peer.AddrInfo)
+type PeerFoundHandler func(peerInfo peer.AddrInfo)
 
 type discoveryNotifee struct {
 	host    host.Host
@@ -15,7 +15,7 @@ type discoveryNotifee struct {
 }
 
 func (n *discoveryNotifee) HandlePeerFound(peerInfo peer.AddrInfo) {
-	n.handler(n.host, peerInfo)
+	n.handler(peerInfo)
 }
 
 // InitDiscovery Initialize Discovery service with mDNS

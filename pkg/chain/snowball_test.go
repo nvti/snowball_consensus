@@ -14,7 +14,7 @@ func TestConsensusChain_Sync(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	t.Run("200 client", func(t *testing.T) {
-		chains := []*ConsensusChain{}
+		chains := []*SnowballChain{}
 		clients := []Client[int]{}
 		for i := 0; i < 200; i++ {
 			chain := NewConsensusChain(snowball.ConsensusConfig{
@@ -44,7 +44,7 @@ func TestConsensusChain_Sync(t *testing.T) {
 			log.Info("Client ", i, " started")
 			chain.Sync()
 
-			go func(chain *ConsensusChain, i int) {
+			go func(chain *SnowballChain, i int) {
 				<-chain.Finished
 				log.Info("Client ", i, " finished")
 				wg.Done()
@@ -76,7 +76,7 @@ func TestConsensusChain_Sync2(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	t.Run("150 client + 50 client", func(t *testing.T) {
-		chains := []*ConsensusChain{}
+		chains := []*SnowballChain{}
 		clients := []Client[int]{}
 		for i := 0; i < 200; i++ {
 			chain := NewConsensusChain(snowball.ConsensusConfig{
@@ -112,14 +112,14 @@ func TestConsensusChain_Sync2(t *testing.T) {
 			log.Info("Client ", i, " started")
 			chain.Sync()
 
-			go func(chain *ConsensusChain, i int) {
+			go func(chain *SnowballChain, i int) {
 				<-chain.Finished
 				log.Info("Client ", i, " finished")
 				wg.Done()
 			}(chain, i)
 		}
 
-		// last 50 client will sync after 10 seconds
+		// last 50 client will sync after 5 seconds
 		time.Sleep(5 * time.Second)
 		for _, chain := range chains {
 			chain.SetClients(clients)
@@ -130,7 +130,7 @@ func TestConsensusChain_Sync2(t *testing.T) {
 			log.Info("Client ", i+150, " started")
 			chain.Sync()
 
-			go func(chain *ConsensusChain, i int) {
+			go func(chain *SnowballChain, i int) {
 				<-chain.Finished
 				log.Info("Client ", i, " finished")
 				wg.Done()
