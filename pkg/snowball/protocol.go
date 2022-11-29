@@ -35,8 +35,8 @@ type Consensus[T PreferenceType] struct {
 	onReqAnswer OnRequestAnswerHandler[T]
 	preference  T
 	confidence  int
-	running     bool
-	Finished    chan bool
+	Running     bool
+	Finished    bool
 }
 
 func NewConsensus[T PreferenceType](config ConsensusConfig) (consensus *Consensus[T]) {
@@ -54,8 +54,8 @@ func NewConsensus[T PreferenceType](config ConsensusConfig) (consensus *Consensu
 		config:     config,
 		onUpdate:   func(t T) {},
 		confidence: 0,
-		running:    false,
-		Finished:   make(chan bool),
+		Running:    false,
+		Finished:   false,
 	}
 
 	return consensus
@@ -81,36 +81,32 @@ func (c *Consensus[T]) Preference() (T, error) {
 }
 
 func (c *Consensus[T]) StopSync() {
-	c.running = false
+	c.Running = false
 }
 
 func (c *Consensus[T]) keepRunning(step int) bool {
-	return (c.config.MaxStep == 0 || step < c.config.MaxStep) && c.running
+	return (c.config.MaxStep == 0 || step < c.config.MaxStep) && c.Running
 }
 
 // Start the consensus
 func (c *Consensus[T]) Sync() {
-	if c.running {
+	if c.Running {
 		return
 	}
-
-	c.running = true
-	go func() {
-		i := 0
-		c.confidence = 1
-		for ; c.confidence < c.config.Beta; i++ {
-			if !c.keepRunning(i) {
-				break
-			}
-
-			log.Debug(c.config.Name, ": Step ", i)
-			c.step()
+	c.Running = true
+	c.confidence = 1
+	i := 0
+	for ; c.confidence < c.config.Beta; i++ {
+		if !c.keepRunning(i) {
+			break
 		}
-		finished := c.keepRunning(i)
-		c.Finished <- finished
-		log.Debug(c.config.Name, ": Finnish after ", i, " step, finished = ", finished, ", preference = ", c.preference)
-		c.running = false
-	}()
+
+		log.Debug(c.config.Name, ": Step ", i)
+		c.step()
+	}
+	c.Finished = c.keepRunning(i)
+	log.Debug(c.config.Name, ": Finnish after ", i, " step, finished = ", c.Finished, ", preference = ", c.preference)
+	c.Running = false
 }
 
 func (c *Consensus[T]) step() {

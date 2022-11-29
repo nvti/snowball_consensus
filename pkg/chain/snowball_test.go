@@ -4,49 +4,66 @@ import (
 	"math/rand"
 	"snowball/pkg/log"
 	"snowball/pkg/snowball"
+	"snowball/pkg/utils"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 )
 
+func createTestConsensusChain(name string, chains []*SnowballChain) *SnowballChain {
+	chain := NewConsensusChain(snowball.ConsensusConfig{
+		Name:    name,
+		K:       20,
+		Alpha:   10,
+		Beta:    10,
+		MaxStep: 0,
+	})
+
+	// have 10 possible choices
+	for i := 0; i < 3; i++ {
+		data := rand.Intn(10)
+		_ = chain.Add(data)
+	}
+
+	chain.SetRequestAnswerHandler(func(index int, k int) []int {
+		clients := utils.GetRandomSubArray(chains, k)
+
+		answers := []int{}
+		for _, c := range clients {
+			if c != nil {
+				p, err := c.Preference(index)
+				if err != nil {
+					continue
+				}
+				answers = append(answers, p)
+			}
+		}
+
+		return answers
+	})
+
+	return chain
+}
+
 func TestConsensusChain_Sync(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	t.Run("200 client", func(t *testing.T) {
-		chains := []*SnowballChain{}
-		clients := []Client[int]{}
+		chains := make([]*SnowballChain, 200)
 		for i := 0; i < 200; i++ {
-			chain := NewConsensusChain(snowball.ConsensusConfig{
-				Name:    "Client " + strconv.Itoa(i),
-				K:       20,
-				Alpha:   10,
-				Beta:    10,
-				MaxStep: 0,
-			})
-
-			for i := 0; i < 3; i++ {
-				data := rand.Intn(10)
-				_ = chain.Add(data)
-			}
-
-			chains = append(chains, chain)
-			clients = append(clients, chain)
-		}
-
-		for _, chain := range chains {
-			chain.SetClients(clients)
+			chain := createTestConsensusChain("Client "+strconv.Itoa(i), chains)
+			chains[i] = chain
 		}
 
 		wg := sync.WaitGroup{}
 		for i, chain := range chains {
 			wg.Add(1)
 			log.Info("Client ", i, " started")
-			chain.Sync()
 
 			go func(chain *SnowballChain, i int) {
-				<-chain.Finished
-				log.Info("Client ", i, " finished")
+				chain.Sync()
+				log.Info("Client ", i, " finished=", chain.Finished)
 				wg.Done()
 			}(chain, i)
 		}
@@ -76,65 +93,39 @@ func TestConsensusChain_Sync2(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	t.Run("150 client + 50 client", func(t *testing.T) {
-		chains := []*SnowballChain{}
-		clients := []Client[int]{}
-		for i := 0; i < 200; i++ {
-			chain := NewConsensusChain(snowball.ConsensusConfig{
-				Name:    "Client " + strconv.Itoa(i),
-				K:       20,
-				Alpha:   10,
-				Beta:    10,
-				MaxStep: 0,
-			})
-
-			// have 10 possible choices
-			for i := 0; i < 3; i++ {
-				data := rand.Intn(10)
-				_ = chain.Add(data)
-			}
-
-			chains = append(chains, chain)
-			clients = append(clients, chain)
-		}
-
-		chains150 := chains[:150]
-		clients150 := clients[:150]
-		chains50 := chains[150:]
-
-		// only first 150 client will sync
-		for _, chain := range chains150 {
-			chain.SetClients(clients150)
+		chains := make([]*SnowballChain, 200)
+		for i := 0; i < 150; i++ {
+			chain := createTestConsensusChain("Client "+strconv.Itoa(i), chains)
+			chains[i] = chain
 		}
 
 		wg := sync.WaitGroup{}
-		for i, chain := range chains150 {
+		for i := 0; i < 150; i++ {
 			wg.Add(1)
 			log.Info("Client ", i, " started")
-			chain.Sync()
+			chain := chains[i]
 
 			go func(chain *SnowballChain, i int) {
-				<-chain.Finished
-				log.Info("Client ", i, " finished")
+				chain.Sync()
+				log.Info("Client ", i, " finished=", chain.Finished)
 				wg.Done()
 			}(chain, i)
 		}
 
 		// last 50 client will sync after 5 seconds
 		time.Sleep(5 * time.Second)
-		for _, chain := range chains {
-			chain.SetClients(clients)
-		}
+		for i := 150; i < 200; i++ {
+			chain := createTestConsensusChain("Client "+strconv.Itoa(i), chains)
+			chains[i] = chain
 
-		for i, chain := range chains50 {
 			wg.Add(1)
-			log.Info("Client ", i+150, " started")
-			chain.Sync()
+			log.Info("Client ", i, " started")
 
 			go func(chain *SnowballChain, i int) {
-				<-chain.Finished
-				log.Info("Client ", i, " finished")
+				chain.Sync()
+				log.Info("Client ", i, " finished=", chain.Finished)
 				wg.Done()
-			}(chain, i+150)
+			}(chain, i)
 		}
 
 		wg.Wait()

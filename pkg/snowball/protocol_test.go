@@ -83,18 +83,14 @@ func TestConsensus(t *testing.T) {
 				})
 			}
 
-			// Start consensus
-			for _, c := range consensuses {
-				c.Sync()
-			}
-
 			// Wait all consensus finished
 			wg := sync.WaitGroup{}
 			allFinish := true
 			for _, c := range consensuses {
 				wg.Add(1)
 				go func(c *Consensus[int]) {
-					finished := <-c.Finished
+					c.Sync()
+					finished := c.Finished
 					if !finished {
 						allFinish = false
 					}
