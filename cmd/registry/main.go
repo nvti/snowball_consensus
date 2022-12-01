@@ -2,10 +2,8 @@ package main
 
 import (
 	"flag"
-	"snowball/models"
-	"strconv"
-
-	"github.com/gofiber/fiber/v2"
+	"log"
+	"snowball/app"
 )
 
 var peers = []string{}
@@ -20,23 +18,8 @@ func init() {
 }
 
 func main() {
-	app := fiber.New()
-
-	app.Post("/", func(c *fiber.Ctx) error {
-		req := &models.RegisterNodeReq{}
-		if err := c.BodyParser(req); err != nil {
-			return err
-		}
-
-		nodeAddress := c.IP() + ":" + strconv.Itoa(req.Port)
-		peers = append(peers, nodeAddress)
-
-		return c.JSON(peers)
-	})
-
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(peers)
-	})
-
-	app.Listen(host + ":" + strconv.Itoa(port))
+	_, err := app.CreateService(app.ServiceConfig{})
+	if err != nil {
+		log.Fatal(err)
+	}
 }

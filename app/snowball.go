@@ -6,11 +6,9 @@ import (
 	"math/rand"
 	"snowball/pkg/chain"
 	"snowball/pkg/log"
-	"snowball/pkg/p2p/libp2p"
+	"snowball/pkg/p2p/http"
 	"snowball/pkg/snowball"
 	"time"
-
-	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type dataReq struct {
@@ -23,17 +21,17 @@ type dataResp struct {
 
 type Service struct {
 	*chain.SnowballChain
-	service *libp2p.Service
+	service *http.Service
 }
 
 type ServiceConfig struct {
-	libp2p.ServerConfig
+	http.ServerConfig
 	snowball.ConsensusConfig
 }
 
 func CreateService(config ServiceConfig) (*Service, error) {
 	s := &Service{}
-	service, err := libp2p.CreateService(config.ServerConfig, s.handleRequest)
+	service, err := http.CreateService(config.ServerConfig, s.handleRequest)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -52,14 +50,12 @@ func (s *Service) onRequestAnswerHandler(index int, k int) []int {
 	answers := []int{}
 	for i, j := 0, 0; i < k && j < len(peers); j++ {
 		p := peers[indexArr[j]]
-		if p != nil {
-			resp, err := s.SendRequest(p, index)
-			if err != nil || resp == nil {
-				continue
-			}
-			answers = append(answers, resp.Data)
-			i++
+		resp, err := s.SendRequest(p, index)
+		if err != nil || resp == nil {
+			continue
 		}
+		answers = append(answers, resp.Data)
+		i++
 	}
 
 	if len(answers) < k {
@@ -69,7 +65,7 @@ func (s *Service) onRequestAnswerHandler(index int, k int) []int {
 	}
 	return answers
 }
-func (s *Service) SendRequest(peer *peer.AddrInfo, index int) (*dataResp, error) {
+func (s *Service) SendRequest(peer string, index int) (*dataResp, error) {
 	req := dataReq{
 		Index: index,
 	}

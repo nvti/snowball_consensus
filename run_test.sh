@@ -2,6 +2,9 @@
 
 # build application
 go build -o snowball_node cmd/node/main.go
+go build -o snowball_registry cmd/registry/main.go
+
+./snowball_registry &
 
 # run 20 nodes
 for i in {1..20}

@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"net/http"
 	"snowball/pkg/log"
 	"strconv"
 
@@ -9,7 +10,7 @@ import (
 )
 
 type NewRequestHandler func([]byte) []byte
-
+type peerFoundHandler func(peerAddress string)
 type Service struct {
 	Config     ServerConfig
 	peers      []string
@@ -30,10 +31,10 @@ func CreateService(config ServerConfig, reqHandler NewRequestHandler) (*Service,
 		reqHandler: reqHandler,
 	}
 
-	app := CreateHttpServer(config.Host, config.Port, service.newPeerHandler)
+	service.createHttpServer()
 
 	go func() {
-		app.Listen(config.Name + ":" + strconv.Itoa(config.Port))
+		http.ListenAndServe(config.Name+":"+strconv.Itoa(config.Port), nil)
 	}()
 
 	return service, nil
@@ -58,4 +59,10 @@ func (s *Service) Send(peer string, data interface{}) ([]byte, error) {
 		return nil, errors.New("status code " + resp.Status())
 	}
 	return resp.Body(), nil
+}
+
+func (s *Service) createHttpServer() {
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 }
