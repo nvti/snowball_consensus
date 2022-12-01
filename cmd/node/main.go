@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"snowball/app"
 	"snowball/pkg/log"
-	"snowball/pkg/p2p"
+	"snowball/pkg/p2p/libp2p"
 	"snowball/pkg/snowball"
 	"time"
 )
@@ -43,7 +43,7 @@ func init() {
 
 func main() {
 	service, err := app.CreateService(app.ServiceConfig{
-		ServerConfig: p2p.ServerConfig{
+		ServerConfig: libp2p.ServerConfig{
 			Name:       serviceName,
 			ProtocolID: protocolID,
 			Host:       host,

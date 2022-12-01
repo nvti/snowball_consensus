@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"snowball/pkg/chain"
 	"snowball/pkg/log"
-	"snowball/pkg/p2p"
+	"snowball/pkg/p2p/libp2p"
 	"snowball/pkg/snowball"
 	"time"
 
@@ -23,17 +23,17 @@ type dataResp struct {
 
 type Service struct {
 	*chain.SnowballChain
-	service *p2p.Service
+	service *libp2p.Service
 }
 
 type ServiceConfig struct {
-	p2p.ServerConfig
+	libp2p.ServerConfig
 	snowball.ConsensusConfig
 }
 
 func CreateService(config ServiceConfig) (*Service, error) {
 	s := &Service{}
-	service, err := p2p.CreateService(config.ServerConfig, s.handleRequest)
+	service, err := libp2p.CreateService(config.ServerConfig, s.handleRequest)
 	if err != nil {
 		log.Error(err)
 		return nil, err
