@@ -3,7 +3,6 @@ module snowball
 go 1.19
 
 require (
-	github.com/go-resty/resty/v2 v2.7.0
 	github.com/libp2p/go-libp2p v0.23.4
 	github.com/sirupsen/logrus v1.8.1
 )

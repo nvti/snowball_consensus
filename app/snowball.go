@@ -90,18 +90,18 @@ func (s *Service) SendRequest(peer string, index int) (*dataResp, error) {
 	return resp, nil
 }
 
-func (s *Service) handleRequest(reqData []byte) []byte {
+func (s *Service) handleRequest(reqData []byte) ([]byte, error) {
 	req := dataReq{}
 	err := json.Unmarshal(reqData, &req)
 	if err != nil {
 		log.Error(err)
-		return nil
+		return nil, err
 	}
 
 	block, err := s.Get(req.Index)
 	if err != nil {
 		log.Error(err)
-		return nil
+		return nil, err
 	}
 
 	resp := dataResp{
@@ -110,8 +110,8 @@ func (s *Service) handleRequest(reqData []byte) []byte {
 	respData, err := json.Marshal(resp)
 	if err != nil {
 		log.Error(err)
-		return nil
+		return nil, err
 	}
 
-	return respData
+	return respData, nil
 }

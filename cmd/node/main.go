@@ -23,6 +23,7 @@ var (
 	maxStep  int
 	chainLen int
 	nChoices int
+	registry string
 )
 
 func init() {
@@ -37,6 +38,7 @@ func init() {
 	flag.IntVar(&maxStep, "maxStep", 0, "Max running step for snowball")
 	flag.IntVar(&chainLen, "chainLen", 4, "Length of chain to sync")
 	flag.IntVar(&nChoices, "nChoices", 2, "Number of possible choices")
+	flag.StringVar(&registry, "registry", "127.0.0.1:5001", "Address of registry")
 
 	flag.Parse()
 }
@@ -48,6 +50,7 @@ func main() {
 			ProtocolID: protocolID,
 			Host:       host,
 			Port:       port,
+			Registry:   registry,
 		},
 		ConsensusConfig: snowball.ConsensusConfig{
 			K:       k,
