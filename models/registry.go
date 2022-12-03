@@ -7,3 +7,7 @@ type RegisterNodeReq struct {
 type NewNodeHook struct {
 	Address string
 }
+
+type ListPeersResp struct {
+	Peers []string
+}

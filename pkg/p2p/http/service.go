@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -18,6 +19,7 @@ type Service struct {
 	Config     ServerConfig
 	peers      []string
 	reqHandler NewRequestHandler
+	server     *http.Server
 }
 
 type ServerConfig struct {
@@ -50,20 +52,22 @@ func CreateService(config ServerConfig, reqHandler NewRequestHandler) (*Service,
 
 	service.createHttpServer()
 
+	go func() {
+		service.server.ListenAndServe()
+	}()
+
 	err := service.callRegistry()
 	if err != nil {
+		service.server.Shutdown(context.TODO())
 		return nil, err
 	}
-	go func() {
-		http.ListenAndServe(config.Host+":"+strconv.Itoa(config.Port), nil)
-	}()
 
 	return service, nil
 }
 
-func (s *Service) newPeerHandler(peerAddress string) {
-	log.Debug("Found peer:", peerAddress, ", connecting")
-	s.peers = append(s.peers, peerAddress)
+func (s *Service) newPeerHandler(peerAddress ...string) {
+	log.Info("Found peer:", peerAddress, ", connecting")
+	s.peers = append(s.peers, peerAddress...)
 }
 
 func (s *Service) Peers() []string {
@@ -106,6 +110,19 @@ func (s *Service) callRegistry() error {
 		return errors.New("fail register")
 	}
 
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	respJson := &models.ListPeersResp{}
+	err = json.Unmarshal(body, respJson)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	s.newPeerHandler(respJson.Peers...)
+
 	return nil
 }
 
@@ -124,6 +141,7 @@ func getFreePort(host string) (int, error) {
 }
 
 func (s *Service) createHttpServer() {
+	srv := &http.Server{Addr: s.Config.Host + ":" + strconv.Itoa(s.Config.Port)}
 	// Health check
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -173,4 +191,6 @@ func (s *Service) createHttpServer() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(respData)
 	})
+
+	s.server = srv
 }

@@ -9,7 +9,7 @@ go build -o snowball_registry cmd/registry/main.go
 ./snowball_registry -port $REGISTRY_PORT &
 
 # run 20 nodes
-for i in {1..20}
+for i in {1..10}
 do
-  ./snowball_node -name "Client $i" -k 10 -alpha 7 -beta 15 -chainLen 5 -nChoices 2 -registry 127.0.0.1:$REGISTRY_PORT &
+  ./snowball_node -name "Client $i" -k 5 -alpha 3 -beta 10 -chainLen 5 -nChoices 2 -registry 127.0.0.1:$REGISTRY_PORT &
 done

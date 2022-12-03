@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -9,9 +10,11 @@ import (
 	"snowball/pkg/log"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 var peers = []string{}
+var mu sync.Mutex
 var host string
 var port int
 
@@ -46,10 +49,46 @@ func main() {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		ip := s[0]
+		address := s[0] + ":" + strconv.Itoa(req.Port)
+		log.Info("New peer coming: ", address)
 
-		peers = append(peers, ip+":"+strconv.Itoa(req.Port))
+		// Notify other peers
+		newPeerReq, err := json.Marshal(&models.NewNodeHook{
+			Address: address,
+		})
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		for _, peer := range peers {
+			if peer == address {
+				continue
+			}
+			go func(peer string) {
+				_, err := http.Post("http://"+peer+"/peer", "application/json", bytes.NewBuffer(newPeerReq))
+				if err != nil {
+					log.Error("Error when send hook to ", peer, ", error=", err)
+				}
+			}(peer)
+		}
+		mu.Lock()
+		peers = append(peers, address)
+
+		respData, err := json.Marshal(models.ListPeersResp{
+			Peers: peers,
+		})
+		mu.Unlock()
+
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
-
+		w.Write(respData)
 	})
+
+	http.ListenAndServe(host+":"+strconv.Itoa(port), nil)
 }
