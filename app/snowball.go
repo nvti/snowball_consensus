@@ -44,10 +44,23 @@ func CreateService(config ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
+func (s *Service) Start() error {
+	return s.service.Start()
+}
+
 func (s *Service) onRequestAnswerHandler(index int, k int) []int {
 	peers := s.service.Peers()
-	indexArr := rand.Perm(len(peers))
 	answers := []int{}
+
+	if len(peers) < k {
+		// Wait for other node connect
+		sleepTime := time.Duration(rand.Intn(1000))
+		time.Sleep(sleepTime * time.Millisecond)
+		return answers
+	}
+
+	// Send request to k random peers
+	indexArr := rand.Perm(len(peers))
 	for i, j := 0, 0; i < k && j < len(peers); j++ {
 		p := peers[indexArr[j]]
 		resp, err := s.SendRequest(p, index)
@@ -65,6 +78,8 @@ func (s *Service) onRequestAnswerHandler(index int, k int) []int {
 	}
 	return answers
 }
+
+// SendRequest send request to peer to get data
 func (s *Service) SendRequest(peer string, index int) (*dataResp, error) {
 	req := dataReq{
 		Index: index,
@@ -90,6 +105,7 @@ func (s *Service) SendRequest(peer string, index int) (*dataResp, error) {
 	return resp, nil
 }
 
+// handleRequest handle request from other node
 func (s *Service) handleRequest(reqData []byte) ([]byte, error) {
 	req := dataReq{}
 	err := json.Unmarshal(reqData, &req)
@@ -98,6 +114,7 @@ func (s *Service) handleRequest(reqData []byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// Get data from chain
 	block, err := s.Get(req.Index)
 	if err != nil {
 		log.Error(err)

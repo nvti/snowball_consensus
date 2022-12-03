@@ -6,20 +6,22 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"snowball/models"
 	"snowball/pkg/log"
+	"snowball/pkg/utils"
 	"strconv"
+	"time"
 )
 
 type NewRequestHandler func([]byte) ([]byte, error)
 type peerFoundHandler func(peerAddress string)
 type Service struct {
-	Config     ServerConfig
-	peers      []string
-	reqHandler NewRequestHandler
-	server     *http.Server
+	Config         ServerConfig
+	peers          []string
+	reqHandler     NewRequestHandler
+	server         *http.Server
+	updatePeerQuit chan struct{}
 }
 
 type ServerConfig struct {
@@ -36,7 +38,7 @@ func CreateService(config ServerConfig, reqHandler NewRequestHandler) (*Service,
 	}
 
 	if config.Port == 0 {
-		port, err := getFreePort(config.Host)
+		port, err := utils.GetFreePort(config.Host)
 		if err != nil {
 			return nil, err
 		}
@@ -52,21 +54,51 @@ func CreateService(config ServerConfig, reqHandler NewRequestHandler) (*Service,
 
 	service.createHttpServer()
 
-	go func() {
-		service.server.ListenAndServe()
-	}()
-
-	err := service.callRegistry()
-	if err != nil {
-		service.server.Shutdown(context.TODO())
-		return nil, err
-	}
-
 	return service, nil
 }
 
+// Start the service
+func (s *Service) Start() error {
+	go func() {
+		s.server.ListenAndServe()
+	}()
+
+	// Register to registry
+	err := s.callRegistry()
+	if err != nil {
+		s.server.Shutdown(context.TODO())
+		return err
+	}
+
+	// Update list peers from registry every 500ms
+	ticker := time.NewTicker(500 * time.Millisecond)
+	s.updatePeerQuit = make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				peers := s.getListPeers()
+				if peers != nil && len(peers) > 0 {
+					s.peers = peers
+				}
+				break
+			case <-s.updatePeerQuit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (s *Service) Stop() error {
+	s.updatePeerQuit <- struct{}{}
+	return s.server.Shutdown(context.TODO())
+}
+
 func (s *Service) newPeerHandler(peerAddress ...string) {
-	log.Info("Found peer:", peerAddress, ", connecting")
+	log.Debug("Found peer:", peerAddress, ", connecting")
 	s.peers = append(s.peers, peerAddress...)
 }
 
@@ -75,7 +107,7 @@ func (s *Service) Peers() []string {
 }
 
 func (s *Service) Send(peer string, data []byte) ([]byte, error) {
-	resp, err := http.Post("http://"+peer+"/"+s.Config.ProtocolID, "application/json", bytes.NewBuffer(data))
+	resp, err := http.Post("http://"+peer+s.Config.ProtocolID, "application/json", bytes.NewBuffer(data))
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +137,7 @@ func (s *Service) callRegistry() error {
 		log.Error(err)
 		return err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("fail register")
@@ -115,6 +148,7 @@ func (s *Service) callRegistry() error {
 		log.Error(err)
 		return err
 	}
+
 	respJson := &models.ListPeersResp{}
 	err = json.Unmarshal(body, respJson)
 	if err != nil {
@@ -124,20 +158,6 @@ func (s *Service) callRegistry() error {
 	s.newPeerHandler(respJson.Peers...)
 
 	return nil
-}
-
-func getFreePort(host string) (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", host+":0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
 func (s *Service) createHttpServer() {
@@ -164,17 +184,12 @@ func (s *Service) createHttpServer() {
 			return
 		}
 
-		if req.Address == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
 		s.newPeerHandler(req.Address)
 		w.WriteHeader(http.StatusOK)
 	})
 
 	// Handle service
-	http.HandleFunc("/"+s.Config.ProtocolID, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(s.Config.ProtocolID, func(w http.ResponseWriter, r *http.Request) {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			log.Error(err)
@@ -193,4 +208,30 @@ func (s *Service) createHttpServer() {
 	})
 
 	s.server = srv
+}
+
+func (s *Service) getListPeers() []string {
+	resp, err := http.Get("http://" + s.Config.Registry + "/peers")
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+	respJson := &models.ListPeersResp{}
+	err = json.Unmarshal(body, respJson)
+	if err != nil {
+		log.Error(err)
+		return nil
+	}
+
+	return respJson.Peers
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -34,15 +33,17 @@ func main() {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		defer r.Body.Close()
 
 		req := &models.RegisterNodeReq{}
-		err = json.Unmarshal(body, &req)
+		err = json.Unmarshal(body, req)
 		if err != nil {
 			log.Error(err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
+		// get client ip
 		remoteAddr := r.RemoteAddr
 		s := strings.Split(remoteAddr, ":")
 		if len(s) == 0 {
@@ -52,33 +53,31 @@ func main() {
 		address := s[0] + ":" + strconv.Itoa(req.Port)
 		log.Info("New peer coming: ", address)
 
-		// Notify other peers
-		newPeerReq, err := json.Marshal(&models.NewNodeHook{
-			Address: address,
-		})
-		if err != nil {
-			log.Error(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		for _, peer := range peers {
-			if peer == address {
-				continue
-			}
-			go func(peer string) {
-				_, err := http.Post("http://"+peer+"/peer", "application/json", bytes.NewBuffer(newPeerReq))
-				if err != nil {
-					log.Error("Error when send hook to ", peer, ", error=", err)
-				}
-			}(peer)
-		}
-		mu.Lock()
-		peers = append(peers, address)
-
+		// Return current peers
 		respData, err := json.Marshal(models.ListPeersResp{
 			Peers: peers,
 		})
+
+		// Add new peer to peers
+		mu.Lock()
+		peers = append(peers, address)
 		mu.Unlock()
+
+		if err != nil {
+			log.Error(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(respData)
+	})
+
+	// Handler request get list current peers
+	http.HandleFunc("/peers", func(w http.ResponseWriter, r *http.Request) {
+		respData, err := json.Marshal(models.ListPeersResp{
+			Peers: peers,
+		})
 
 		if err != nil {
 			log.Error(err)

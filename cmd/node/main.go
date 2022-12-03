@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"math/rand"
 	"snowball/app"
 	"snowball/pkg/log"
@@ -64,18 +65,33 @@ func main() {
 	}
 
 	for i := 0; i < chainLen; i++ {
-		service.Add(rand.Intn(nChoices))
+		// Make sure 30% of all node have the same choice
+		r := rand.Intn(int(float32(nChoices) * 1.5))
+		if r < nChoices {
+			service.Add(r)
+		} else {
+			service.Add(i)
+		}
 	}
 
+	// Start service
+	err = service.Start()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Sleep random time
 	sleepTime := time.Duration(rand.Intn(1000))
 	time.Sleep(sleepTime * time.Millisecond)
 
 	service.Sync()
 
-	log.Infof("%s: Sync finished=%v, data=", name, service.Finished)
+	// Final result
+	d := ""
 	for _, block := range service.Blocks {
-		log.Infof("%v", block.Data)
+		d += fmt.Sprint(block.Data) + " "
 	}
+	log.Infof("%s: Sync finished=%v, data=%v", name, service.Finished, d)
 
 	// sleep for make sure other nodes can receive the message
 	time.Sleep(20 * time.Second)

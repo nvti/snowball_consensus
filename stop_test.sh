@@ -1,0 +1,2 @@
+pkill snowball_node
+pkill snowball_registry
