@@ -1,4 +1,4 @@
-package models
+package http
 
 type RegisterNodeReq struct {
 	Port int

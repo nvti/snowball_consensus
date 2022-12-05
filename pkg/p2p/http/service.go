@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
-	"snowball/models"
 	"snowball/pkg/log"
 	"snowball/pkg/utils"
 	"strconv"
@@ -125,7 +124,7 @@ func (s *Service) Send(peer string, data []byte) ([]byte, error) {
 }
 
 func (s *Service) callRegistry() error {
-	data, err := json.Marshal(models.RegisterNodeReq{
+	data, err := json.Marshal(RegisterNodeReq{
 		Port: s.Config.Port,
 	})
 	if err != nil {
@@ -149,7 +148,7 @@ func (s *Service) callRegistry() error {
 		return err
 	}
 
-	respJson := &models.ListPeersResp{}
+	respJson := &ListPeersResp{}
 	err = json.Unmarshal(body, respJson)
 	if err != nil {
 		log.Error(err)
@@ -176,7 +175,7 @@ func (s *Service) createHttpServer() {
 			return
 		}
 
-		req := &models.NewNodeHook{}
+		req := &NewNodeHook{}
 		err = json.Unmarshal(body, req)
 		if err != nil {
 			log.Error(err)
@@ -226,7 +225,7 @@ func (s *Service) getListPeers() []string {
 		log.Error(err)
 		return nil
 	}
-	respJson := &models.ListPeersResp{}
+	respJson := &ListPeersResp{}
 	err = json.Unmarshal(body, respJson)
 	if err != nil {
 		log.Error(err)
