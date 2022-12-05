@@ -48,7 +48,7 @@ func (p *Registry) createHttpServer() {
 	// new peer coming
 	http.HandleFunc("/", p.handleNewPeer)
 
-	// Handler request get list current peers
+	// Handle request get list current peers
 	http.HandleFunc("/peers", p.handleGetListPeers)
 
 	p.server = srv

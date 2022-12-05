@@ -18,7 +18,16 @@ To clean the test, run:
 
 ## Test setup
 
-1. Probability of a node data
+1. Peer-to-peer
+
+I implement 2 kind of peer-to-peer network: use libp2p and simple http service
+
+- libp2p: libp2p work perfectly but it cost too much memory
+  - just start service: about 35MB
+  - send large request to others: maybe about 80MB of RAM
+- simple http service: I create a central registry to manage list of living node. You can read more about design of this service [here](pkg/p2p/http/README.md)
+
+2. Probability of a node data
 
 I do a trick to make the test more realistic: make sure that more than 30% of the node have the same data. I do that by using this code:
 
@@ -34,7 +43,7 @@ for i := 0; i < chainLen; i++ {
 }
 ```
 
-2. Update peers
+3. Update peers
 
 Currently, the node has to request to the registry to get the list of peers every 500 miliseconds. I already implemented a webhook to update the list of peers every time the registry has a new peer. But that way needs to send a large amount of request from registry. I will find a better way to do that.
 
@@ -43,6 +52,7 @@ Currently, the node has to request to the registry to get the list of peers ever
 I tested with 200 node, 10 possible choices and each node has 5 blocks. After syncing, all node has the same data and it takes about 13s to reach consensus.
 
 ## Todo
+
 - [ ] Add more test
 - [ ] Implement a better way to update peers
 - [ ] Implement health check in the registry to remove dead node
